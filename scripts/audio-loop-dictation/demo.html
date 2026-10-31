@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Demo Test - Study4 TOEIC Audio Loop & Dictation Helper</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 24px;
+            color: #1e293b;
+        }
+        .container {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+        .header-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border-left: 4px solid #2563eb;
+        }
+        .question-wrapper {
+            background: #fff;
+            border-radius: 10px;
+            padding: 18px 22px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .question-title {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #0f172a;
+        }
+        audio.post-audio-item {
+            width: 100%;
+            height: 40px;
+        }
+        .collapse.show {
+            margin-top: 12px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border-left: 3px solid #94a3b8;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-card">
+            <h2 style="margin:0 0 8px 0;">🎧 Trang Giả Lập Đáp Án Study4 TOEIC</h2>
+            <p style="margin:0; font-size:14px; color:#475569;">
+                Trang này mô phỏng cấu trúc DOM (<code>.question-wrapper</code>, <code>audio.post-audio-item</code>, <code>.collapse.show</code>) của trang giải chi tiết trên Study4 để test nhanh các tính năng Loop, A-B Repeat, Tự qua câu và Chép chính tả.
+            </p>
+        </div>
+
+        <div class="question-wrapper">
+            <div class="question-title">Câu 1 (Part 1 - Photographs)</div>
+            <audio class="post-audio-item" controls src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"></audio>
+            <div class="collapse show">
+                (A) They're sitting on a bench.<br>
+                (B) They're walking across the street.<br>
+                (C) They're boarding a bus.<br>
+                (D) They're looking at a map.
+            </div>
+        </div>
+
+        <div class="question-wrapper">
+            <div class="question-title">Câu 2 (Part 2 - Question-Response)</div>
+            <audio class="post-audio-item" controls src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+            <div class="collapse show">
+                When is the marketing meeting scheduled to begin?<br>
+                (A) In the main conference room.<br>
+                (B) At two o'clock this afternoon.<br>
+                (C) Yes, I met her yesterday.
+            </div>
+        </div>
+    </div>
+
+    <script src="./study4-toeic-audio.user.js"></script>
+</body>
+</html>
