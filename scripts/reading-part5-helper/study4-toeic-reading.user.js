@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Study4 TOEIC Reading & Part 5 Helper (Speed Drill, Retry & Anki)
 // @namespace    https://github.com/GiapKun/study4-audio-helper
-// @version      1.0.0
+// @version      1.0.1
 // @description  Trợ thủ luyện Reading TOEIC (Part 5, 6, 7) trên Study4: Đồng hồ 25s/câu, Phím tắt chọn A/B/C/D tự qua câu, Lọc & Che đáp án làm lại câu sai, Bôi đen từ vựng đẩy 1-click vào Anki.
 // @author       GiapKun
 // @match        https://study4.com/tests/*
@@ -468,33 +468,105 @@
         `;
         document.body.appendChild(backdrop);
 
-        // Khi bôi đen văn bản trong câu hỏi / giải thích
-        document.addEventListener('mouseup', (e) => {
-            if (e.target.closest('#s4-anki-modal-backdrop, #s4-reading-bar, #s4-anki-SelectionBtn')) return;
-            setTimeout(() => {
-                const sel = window.getSelection();
-                const text = sel ? sel.toString().trim() : '';
-                if (text.length >= 2 && text.length <= 120) {
-                    const qBox = e.target.closest?.('.question-wrapper, .question-item-wrapper, .context-wrapper');
-                    if (!qBox) {
-                        selBtn.style.display = 'none';
-                        return;
-                    }
-                    const qTextEl = qBox.querySelector('.question-text') || qBox;
-                    const expEl = qBox.querySelector('.question-explanation-wrapper, .collapse.show');
-                    currentSelectionInfo = {
-                        term: text,
-                        context: qTextEl.innerText.trim().replace(/\s+/g, ' '),
-                        explanation: expEl ? expEl.innerText.trim() : '',
-                    };
-                    selBtn.style.left = `${Math.min(window.innerWidth - 130, e.clientX + 8)}px`;
-                    selBtn.style.top = `${Math.max(10, e.clientY - 36)}px`;
-                    selBtn.style.display = 'block';
-                } else {
-                    selBtn.style.display = 'none';
-                }
-            }, 20);
+        // Lưu tạm vùng bôi đen trong lúc kéo chuột (trước khi TextHighlighter của Study4 xóa range khi nhả chuột)
+        let cachedSelection = { text: '', anchorEl: null, time: 0 };
+
+        document.addEventListener('selectionchange', () => {
+            const sel = window.getSelection();
+            const txt = sel ? sel.toString().trim() : '';
+            if (txt.length >= 2 && txt.length <= 200) {
+                const anchor = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
+                cachedSelection = {
+                    text: txt,
+                    anchorEl: anchor,
+                    time: Date.now(),
+                };
+            }
         });
+
+        // Trích xuất câu văn chứa cụm từ được bôi đen và lời giải thích
+        const extractContextFromElement = (targetEl, selectedTerm) => {
+            const qBox = targetEl?.closest?.('.question-wrapper, .question-item-wrapper, .context-wrapper, .question-twocols, .test-questions-wrapper, .card-body')
+                || activeQuestion
+                || targetEl?.parentElement;
+
+            let contextText = '';
+            let explanationText = '';
+
+            if (qBox) {
+                const qTextEl = qBox.querySelector('.question-text, .context-content');
+                const expEl = qBox.querySelector('.question-explanation-wrapper, .collapse.show, .collapse');
+                if (qTextEl) {
+                    contextText = qTextEl.innerText.trim().replace(/\s+/g, ' ');
+                }
+                if (expEl) {
+                    explanationText = expEl.innerText.trim();
+                }
+            }
+
+            // Nếu người dùng bôi đen ngay trong phần Giải thích hoặc đoạn văn dài mà chưa lấy được câu gốc,
+            // trích xuất câu văn gần nhất chứa cụm từ đó
+            if (!contextText && targetEl) {
+                const block = targetEl.closest('p, li, div') || targetEl;
+                const rawBlock = block.innerText ? block.innerText.trim().replace(/\s+/g, ' ') : '';
+                if (rawBlock) {
+                    const sentences = rawBlock.split(/(?<=[.!?])\s+/);
+                    const matchSent = sentences.find(s => s.toLowerCase().includes(selectedTerm.toLowerCase()));
+                    contextText = matchSent || rawBlock.slice(0, 250);
+                }
+            }
+
+            return {
+                term: selectedTerm,
+                context: contextText || selectedTerm,
+                explanation: explanationText,
+            };
+        };
+
+        // Bắt sự kiện mouseup ở CAPTURE PHASE (chạy TRƯỚC khi TextHighlighter của Study4 xóa vùng chọn!)
+        const onSelectionMouseUp = (e) => {
+            if (e.target.closest?.('#s4-anki-modal-backdrop, #s4-reading-bar, #s4-anki-SelectionBtn')) return;
+
+            const sel = window.getSelection();
+            let text = sel ? sel.toString().trim() : '';
+            let targetEl = e.target;
+
+            // Dự phòng 1: Lấy từ cache của selectionchange nếu Study4 vừa xóa vùng bôi đen
+            if (!text && Date.now() - cachedSelection.time < 400) {
+                text = cachedSelection.text;
+                if (cachedSelection.anchorEl) targetEl = cachedSelection.anchorEl;
+            }
+
+            // Dự phòng 2: Nếu click vào cụm từ đã được Study4 highlight vàng (.highlighted[data-timestamp])
+            if (!text) {
+                const hlSpan = e.target.closest?.('.highlighted[data-highlighted="true"]');
+                if (hlSpan) {
+                    const ts = hlSpan.getAttribute('data-timestamp');
+                    if (ts && hlSpan.parentElement) {
+                        const allChunks = hlSpan.closest('.highlighter-context, body').querySelectorAll(`.highlighted[data-timestamp="${ts}"]`);
+                        text = Array.from(allChunks).map(el => el.textContent).join('').trim();
+                    } else {
+                        text = hlSpan.textContent.trim();
+                    }
+                }
+            }
+
+            if (text.length >= 2 && text.length <= 200) {
+                currentSelectionInfo = extractContextFromElement(targetEl, text);
+                selBtn.style.left = `${Math.min(window.innerWidth - 135, Math.max(10, e.clientX + 8))}px`;
+                selBtn.style.top = `${Math.max(10, e.clientY - 38)}px`;
+                selBtn.style.display = 'block';
+                // Reset cache để click ra ngoài lần sau sẽ ẩn nút
+                cachedSelection = { text: '', anchorEl: null, time: 0 };
+            } else {
+                selBtn.style.display = 'none';
+            }
+        };
+
+        document.addEventListener('mouseup', onSelectionMouseUp, true);
+        window.__s4RemoveSelectionListener = () => {
+            document.removeEventListener('mouseup', onSelectionMouseUp, true);
+        };
 
         selBtn.addEventListener('click', () => {
             if (!currentSelectionInfo) return;
@@ -708,6 +780,7 @@
         clearInterval(timerInterval);
         document.removeEventListener('click', onDocClick, true);
         window.removeEventListener('keydown', onDocKeyDown);
+        if (window.__s4RemoveSelectionListener) window.__s4RemoveSelectionListener();
         bar.remove();
         styleEl.remove();
         document.getElementById('s4-anki-SelectionBtn')?.remove();
